@@ -1,5 +1,5 @@
 import RecentOrderAnalytics from "../../components/analytics/RecentOrderAnalytics";
-import DemographicCard from "../../components/ecommerce/DemographicCard";
+import DemographicCard from "../../components/monitoring/DemographicCard";
 import TopPages from "../../components/analytics/TopPages";
 import TopChannel from "../../components/analytics/TopChannel";
 import AnalyticsMetrics from "../../components/analytics/AnalyticsMetrics";

@@ -3,7 +3,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import GuestRoute from "./components/auth/GuestRoute";
 import AdminRoute from "./components/auth/AdminRoute";
 import UserManagement from "./pages/UserManagement";
-import Ecommerce from "./pages/Dashboard/Ecommerce";
+import Monitoring from "./pages/Dashboard/Monitoring";
 import Stocks from "./pages/Dashboard/Stocks";
 import Crm from "./pages/Dashboard/Crm";
 import Marketing from "./pages/Dashboard/Marketing";
@@ -73,7 +73,7 @@ export default function App() {
           {/* Dashboard Layout */}
           <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Ecommerce />} />
+            <Route index path="/" element={<Monitoring />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/marketing" element={<Marketing />} />
             <Route path="/crm" element={<Crm />} />
