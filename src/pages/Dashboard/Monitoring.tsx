@@ -1,7 +1,7 @@
 import EnergyMetrics from "../../components/monitoring/EnergyMetrics";
-import MonthlySalesChart from "../../components/monitoring/MonthlySalesChart";
+//import MonthlySalesChart from "../../components/monitoring/MonthlySalesChart";
 import StatisticsChart from "../../components/monitoring/StatisticsChart";
-import MonthlyTarget from "../../components/monitoring/MonthlyTarget";
+//import MonthlyTarget from "../../components/monitoring/MonthlyTarget";
 import RecentOrders from "../../components/monitoring/RecentOrders";
 import DemographicCard from "../../components/monitoring/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
@@ -18,13 +18,13 @@ export default function Monitoring() {
           <EnergyMetrics />
         </div>
 
-        <div className="col-span-12 space-y-6 xl:col-span-7">
+        {/*<div className="col-span-12 space-y-6 xl:col-span-7">
           <MonthlySalesChart />
         </div>
 
         <div className="col-span-12 xl:col-span-5">
           <MonthlyTarget />
-        </div>
+        </div>*/}
 
         <div className="col-span-12">
           <StatisticsChart />

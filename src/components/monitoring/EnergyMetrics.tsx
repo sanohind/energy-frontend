@@ -74,7 +74,7 @@ function GaugeMetricCard({
     },
     plotOptions: {
       radialBar: {
-        offsetY: 0,
+        offsetY: -20,
         startAngle: -90,
         endAngle: 90,
         hollow: {
@@ -95,7 +95,7 @@ function GaugeMetricCard({
           value: {
             fontSize: "28px",
             fontWeight: "600",
-            offsetY: -40,
+            offsetY: -45,
             color: "#1D2939",
             formatter: function (){
               return formatMetric(value, digits) + " " + unit;
@@ -247,9 +247,9 @@ export default function EnergyMetrics() {
                   />
                   <GaugeMetricCard
                     label="Power"
-                    unit="W"
+                    unit="kW"
                     value={meter.power}
-                    digits={1}
+                    digits={2}
                     max={meter.max_power} 
                     color="#10B981"
                     status={status}

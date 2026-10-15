@@ -37,7 +37,7 @@ const emptyForm: PowerMeterFormState = {
     slave_id: 1,
     max_voltage: 250,
     max_current: 100,
-    max_power: 22000,
+    max_power: 22,
     is_active: true,
 };
 
@@ -164,7 +164,7 @@ export default function PowerMeterList() {
                                     </TableCell>
                                     <TableCell 
                                         isHeader className="px-5 py-3 text-start font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                                        Max (V/A/W)
+                                        Max (V/A/kW)
                                     </TableCell>
                                     <TableCell 
                                         isHeader className="px-5 py-3 text-start font-medium text-gray-500 text-theme-xs dark:text-gray-400">
@@ -201,7 +201,7 @@ export default function PowerMeterList() {
                                                 {meter.slave_id}
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-start text-gray-500 dark:text-grey-400 text-theme-sm">
-                                                {meter.max_voltage}V / {meter.max_current}A / {meter.max_power}W
+                                                {meter.max_voltage}V / {meter.max_current}A / {meter.max_power}kW
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-start">
                                                 <Badge size="sm" color={meter.is_active ? "success" : "error"}>
@@ -291,10 +291,10 @@ export default function PowerMeterList() {
                                 />
                             </div>
                             <div>
-                                <Label>Max Power (W)</Label>
+                                <Label>Max Power (kW)</Label>
                                 <Input
                                     type="number"
-                                    placeholder="22000"
+                                    placeholder="22"
                                     value={form.max_power}
                                     onChange={(e) =>
                                         setForm((prev) => ({ ...prev, max_power: Number(e.target.value) }))

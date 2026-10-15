@@ -85,7 +85,8 @@ export function useRealtimeMetrics() {
             const s = typeof meterValue?.slave_id === 'number' ? meterValue.slave_id : null;
             const v = parseMetric(meterValue?.voltage);
             const c = parseMetric(meterValue?.current);
-            const p = parseMetric(meterValue?.power);
+            const rawPower = parseMetric(meterValue?.power);
+            const p = rawPower !== null ? rawPower / 1000 : null;
 
             parsedMeters.push({ id: key, slave_id: s, voltage: v, current: c, power: p });
             if (v !== null) {
