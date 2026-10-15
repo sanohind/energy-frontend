@@ -3,6 +3,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import GuestRoute from "./components/auth/GuestRoute";
 import AdminRoute from "./components/auth/AdminRoute";
 import UserManagement from "./pages/UserManagement";
+import PowerMeterList from "./pages/MasterData/PowerMeterList";
 import Monitoring from "./pages/Dashboard/Monitoring";
 import Stocks from "./pages/Dashboard/Stocks";
 import Crm from "./pages/Dashboard/Crm";
@@ -32,8 +33,6 @@ import Invoices from "./pages/Invoices";
 import ComingSoon from "./pages/OtherPage/ComingSoon";
 import FileManager from "./pages/FileManager";
 import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import DataTables from "./pages/Tables/DataTables";
 import PricingTables from "./pages/PricingTables";
 import Faqs from "./pages/Faqs";
 import Chats from "./pages/Chat/Chats";
@@ -84,6 +83,7 @@ export default function App() {
             <Route path="/profile" element={<UserProfiles />} />
             <Route element={<AdminRoute />}>
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/power-meters" element={<PowerMeterList />} />
             </Route>
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/invoice" element={<Invoices />} />
@@ -106,10 +106,6 @@ export default function App() {
 
             <Route path="/inbox" element={<EmailInbox />} />
             <Route path="/inbox-details" element={<EmailDetails />} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<BasicTables />} />
-            <Route path="/data-tables" element={<DataTables />} />
 
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />

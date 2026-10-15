@@ -4,6 +4,7 @@ export type ConnectionStatus = "connecting" | "live" | "disconnected";
 
 export interface MeterData{
   id: string;
+  slave_id: number | null;
   voltage: number | null;
   current: number | null;
   power: number | null;
@@ -18,12 +19,6 @@ export interface RealtimeMetrics {
     power: number | null;
   };
 }
-
-/*interface WsPayload {
-  voltage?: number;
-  current?: number;
-  power?: number;
-}*/
 
 const RECONNECT_MS = 3000;
 
@@ -87,11 +82,12 @@ export function useRealtimeMetrics() {
             if (key === "timestamp") continue;
 
             const meterValue = value as Record<string, unknown>;
+            const s = typeof meterValue?.slave_id === 'number' ? meterValue.slave_id : null;
             const v = parseMetric(meterValue?.voltage);
             const c = parseMetric(meterValue?.current);
             const p = parseMetric(meterValue?.power);
 
-            parsedMeters.push({ id: key, voltage: v, current: c, power: p });
+            parsedMeters.push({ id: key, slave_id: s, voltage: v, current: c, power: p });
             if (v !== null) {
               totalVoltage += v;
               countVoltage++;

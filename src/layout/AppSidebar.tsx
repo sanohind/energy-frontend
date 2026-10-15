@@ -54,10 +54,13 @@ const navItems: NavItem[] = [
     path: "/profile",
   },
   {
-    icon: <UserCircleIcon />,
-    name: "User Management",
-    path: "/users",
+    name: "Master Data",
+    icon: <TableIcon />,
     adminOnly: true,
+    subItems: [
+      { name: "Power Meter", path: "/power-meters" },
+      { name: "User Management", path: "/users" },
+    ],
   },
   {
     name: "Task",
@@ -75,14 +78,14 @@ const navItems: NavItem[] = [
       { name: "Form Layout", path: "/form-layout", pro: true },
     ],
   },
-  {
+  /*{
     name: "Tables",
     icon: <TableIcon />,
     subItems: [
       { name: "Basic Tables", path: "/basic-tables", pro: false },
       { name: "Data Tables", path: "/data-tables", pro: true },
     ],
-  },
+  },*/
   {
     name: "Pages",
     icon: <PageIcon />,
