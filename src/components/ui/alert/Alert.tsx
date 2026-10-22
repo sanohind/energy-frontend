@@ -7,6 +7,7 @@ interface AlertProps {
   showLink?: boolean; // Whether to show the "Learn More" link
   linkHref?: string; // Link URL
   linkText?: string; // Link text
+  onClose?: () => void; // Optional callback to dismiss the alert
 }
 
 const Alert: React.FC<AlertProps> = ({
@@ -16,6 +17,7 @@ const Alert: React.FC<AlertProps> = ({
   showLink = false,
   linkHref = "#",
   linkText = "Learn more",
+  onClose,
 }) => {
   // Tailwind classes for each variant
   const variantClasses = {
@@ -115,27 +117,50 @@ const Alert: React.FC<AlertProps> = ({
     <div
       className={`rounded-xl border p-4 ${variantClasses[variant].container}`}
     >
-      <div className="flex items-start gap-3">
-        <div className={`-mt-0.5 ${variantClasses[variant].icon}`}>
-          {icons[variant]}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className={`-mt-0.5 ${variantClasses[variant].icon}`}>
+            {icons[variant]}
+          </div>
+
+          <div>
+            <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">
+              {title}
+            </h4>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+
+            {showLink && (
+              <Link
+                to={linkHref}
+                className="inline-block mt-3 text-sm font-medium text-gray-500 underline dark:text-gray-400"
+              >
+                {linkText}
+              </Link>
+            )}
+          </div>
         </div>
 
-        <div>
-          <h4 className="mb-1 text-sm font-semibold text-gray-800 dark:text-white/90">
-            {title}
-          </h4>
-
-          <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
-
-          {showLink && (
-            <Link
-              to={linkHref}
-              className="inline-block mt-3 text-sm font-medium text-gray-500 underline dark:text-gray-400"
+        {onClose && variant !== "success" && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition focus:outline-none"
+            aria-label="Close alert"
+          >
+            <svg
+              className="w-4 h-4 fill-current"
+              viewBox="0 0 20 20"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              {linkText}
-            </Link>
-          )}
-        </div>
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

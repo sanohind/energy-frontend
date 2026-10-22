@@ -8,6 +8,7 @@ import {
 } from "../../hooks/useRealtimeMetrics";
 import api from "../../lib/api";
 import { PowerMeter } from "../../types/powerMeter";
+import { useTheme } from "../../context/ThemeContext";
 
 const statusLabel: Record<ConnectionStatus, string> = {
   connecting: "Connecting",
@@ -58,9 +59,9 @@ function GaugeMetricCard({
   color: string;
   status: ConnectionStatus;
 }) {
-  
+  const { theme } = useTheme();
   const numericValue = value === null ? 0 : value;
-  const percentage = Math.min ((numericValue / max) * 100, 100);
+  const percentage = Math.min((numericValue / max) * 100, 100);
   const series = [percentage];
   
   const options: ApexOptions = {
@@ -81,23 +82,23 @@ function GaugeMetricCard({
           size: "75%",
         },
         track: {
-          background: "#E4E7EC",
+          background: theme === "dark" ? "#374151" : "#E4E7EC",
           strokeWidth: "100%",
-          margin: 5, // margin is in pixels
+          margin: 5,
         },
         dataLabels: {
           name: {
             show: true,
             offsetY: 10,
-            color: "#6B7280",
+            color: theme === "dark" ? "#9CA3AF" : "#6B7280",
             fontSize: "20px",
           },
           value: {
             fontSize: "28px",
             fontWeight: "600",
             offsetY: -45,
-            color: "#1D2939",
-            formatter: function (){
+            color: theme === "dark" ? "#FFFFFF" : "#1D2939",
+            formatter: function () {
               return formatMetric(value, digits) + " " + unit;
             },
           },
@@ -119,14 +120,14 @@ function GaugeMetricCard({
     cardContent = (
       <div className="flex h-[200px] w-full flex-col items-center justify-center">
         <ErrorIcon />
-        <span className="text-sm font-medium text-red-500">Koneksi Terputus</span>
+        <span className="text-sm font-medium text-red-500">Connection Disconnected</span>
       </div>
     );
   } else if (status === "connecting" || value === null) {
     cardContent = (
       <div className="flex h-[200px] w-full flex-col items-center justify-center">
         <LoadingIcon />
-        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Menunggu data...</span>
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Waiting for data...</span>
       </div>
     );
   } else {
@@ -161,7 +162,7 @@ export default function EnergyMetrics() {
         const response = await api.get("/power-meters");
         setMasterMeters(Array.isArray(response.data) ? response.data : response.data.data);
       } catch (error) {
-        console.error("Gagal mengambil master data", error);
+        console.error("Failed to load master meters", error);
       } finally {
         setIsMasterLoading(false);
       }
@@ -171,10 +172,24 @@ export default function EnergyMetrics() {
   }, []);
 
   if (isMasterLoading) {
-    return <div className="p-5 text-center text-gray-500">Memuat konfigurasi dashboard...</div>;
+    return (
+      <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        Loading dashboard configuration...
+      </div>
+    );
   }
 
-  const displayMeters: any[] = [];
+  const displayMeters: Array<{
+    key: string;
+    slave_id: number | null;
+    name: string;
+    max_voltage: number;
+    max_current: number;
+    max_power: number;
+    voltage: number | null;
+    current: number | null;
+    power: number | null;
+  }> = [];
 
   masterMeters.forEach((master) => {
     if (master.is_active) {
@@ -200,7 +215,7 @@ export default function EnergyMetrics() {
       displayMeters.push({
         key: `unknown_${rtMeter.id}`,
         slave_id: rtMeter.slave_id,
-        name: "Unknown Meter (Slave ID: " + (rtMeter.slave_id != null ? rtMeter.slave_id : "?") + ")",
+        name: `Unknown Meter (Slave ID: ${rtMeter.slave_id != null ? rtMeter.slave_id : "?"})`,
         max_voltage: 250,
         max_current: 100,
         max_power: 22000,
@@ -217,44 +232,44 @@ export default function EnergyMetrics() {
     <div>
       <div className="space-y-8">
         {displayMeters.length === 0 ? (
-          <div className="p-10 text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-2xl">
-            Belum ada Power Meter yang terdaftar di Master Data.
+          <div className="p-10 text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-2xl dark:border-gray-800 dark:text-gray-400">
+            No Power Meters registered in Master Data.
           </div>
         ) : (
-          displayMeters.map((meter) =>(
+          displayMeters.map((meter) => (
             <div key={meter.key}>
-              <h3 className="mb-4 text-md font-semibold text-gray-300 capitalize dark:text-gray-300">
+              <h3 className="mb-4 text-lg font-semibold text-gray-800 capitalize dark:text-white/90">
                 {meter.name}
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
-                  <GaugeMetricCard
-                    label="Voltage"
-                    unit="V"
-                    value={meter.voltage}
-                    digits={1}
-                    max={meter.max_voltage}
-                    color="#465FFF"
-                    status={status}
-                  />
-                  <GaugeMetricCard
-                    label="Current"
-                    unit="A"
-                    value={meter.current}
-                    digits={2}
-                    max={meter.max_current}
-                    color="#F59E0B"
-                    status={status}
-                  />
-                  <GaugeMetricCard
-                    label="Power"
-                    unit="kW"
-                    value={meter.power}
-                    digits={2}
-                    max={meter.max_power} 
-                    color="#10B981"
-                    status={status}
-                  />
-                </div>
+                <GaugeMetricCard
+                  label="Voltage"
+                  unit="V"
+                  value={meter.voltage}
+                  digits={1}
+                  max={meter.max_voltage}
+                  color="#465FFF"
+                  status={status}
+                />
+                <GaugeMetricCard
+                  label="Current"
+                  unit="A"
+                  value={meter.current}
+                  digits={2}
+                  max={meter.max_current}
+                  color="#F59E0B"
+                  status={status}
+                />
+                <GaugeMetricCard
+                  label="Power"
+                  unit="kW"
+                  value={meter.power}
+                  digits={2}
+                  max={meter.max_power} 
+                  color="#10B981"
+                  status={status}
+                />
+              </div>
             </div>  
           ))
         )}

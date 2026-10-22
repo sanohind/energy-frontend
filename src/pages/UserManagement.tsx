@@ -4,11 +4,14 @@ import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
+import Alert from "../components/ui/alert/Alert";
 import { Modal } from "../components/ui/modal";
 import { useModal } from "../hooks/useModal";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
 import Checkbox from "../components/form/input/Checkbox";
+import Pagination from "../components/common/Pagination";
+import ConfirmDeleteModal from "../components/common/ConfirmDeleteModal";
 import {
   Table,
   TableBody,
@@ -36,24 +39,38 @@ const emptyForm: UserFormState = {
   is_active: true,
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
   const { isOpen, openModal, closeModal } = useModal();
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formError, setFormError] = useState("");
-  const [listError, setListError] = useState("");
+  const [alert, setAlert] = useState<{ variant: "success" | "error"; title: string; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AuthUser | null>(null);
   const [form, setForm] = useState<UserFormState>(emptyForm);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Auto-close success alerts after 4 seconds
+  useEffect(() => {
+    if (alert?.variant === "success") {
+      const timer = setTimeout(() => {
+        setAlert(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [alert]);
 
   const loadUsers = useCallback(async () => {
     try {
-      setListError("");
       const response = await api.get<{ users: AuthUser[] }>("/users");
       setUsers(response.data.users);
     } catch {
-      setListError("Unable to load users.");
+      setAlert({ variant: "error", title: "Error", message: "Failed to load users." });
     } finally {
       setIsLoading(false);
     }
@@ -100,8 +117,18 @@ export default function UserManagement() {
           payload.password = form.password;
         }
         await api.put(`/users/${editingUser.id}`, payload);
+        setAlert({
+          variant: "success",
+          title: "Success",
+          message: `User "${form.name}" updated successfully.`,
+        });
       } else {
         await api.post("/users", form);
+        setAlert({
+          variant: "success",
+          title: "Success",
+          message: `User "${form.name}" created successfully.`,
+        });
       }
       closeModal();
       await loadUsers();
@@ -112,34 +139,52 @@ export default function UserManagement() {
           | undefined;
         const firstError = errors ? Object.values(errors)[0]?.[0] : undefined;
         setFormError(
-          firstError || err.response?.data?.message || "Unable to save user."
+          firstError || err.response?.data?.message || "Failed to save user."
         );
       } else {
-        setFormError("Unable to save user.");
+        setFormError("Failed to save user.");
       }
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = async (user: AuthUser) => {
+  const handleDeleteClick = (user: AuthUser) => {
     if (user.id === currentUser?.id) {
       return;
     }
-    if (!window.confirm(`Delete user ${user.email}?`)) {
-      return;
-    }
+    setDeletingUser(user);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingUser) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/users/${user.id}`);
+      await api.delete(`/users/${deletingUser.id}`);
+      setAlert({
+        variant: "success",
+        title: "Success",
+        message: `User "${deletingUser.name || deletingUser.email}" deleted successfully.`,
+      });
+      setDeletingUser(null);
       await loadUsers();
     } catch (err) {
-      if (isAxiosError(err)) {
-        setListError(err.response?.data?.message || "Unable to delete user.");
-      } else {
-        setListError("Unable to delete user.");
-      }
+      const msg = isAxiosError(err) ? err.response?.data?.message || "Failed to delete user." : "Failed to delete user.";
+      setAlert({
+        variant: "error",
+        title: "Delete Failed",
+        message: msg,
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
+
+  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+  const displayedUsers = users.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <>
@@ -151,18 +196,18 @@ export default function UserManagement() {
 
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/*<p className="text-sm text-gray-500 dark:text-gray-400">
-            Create operator and admin accounts. There is no public registration.
-          </p>*/}
           <Button size="sm" onClick={openCreate}>
-            Add user
+            Add User
           </Button>
         </div>
 
-        {listError && (
-          <div className="p-3 text-sm rounded-lg bg-error-50 text-error-500 dark:bg-error-500/10">
-            {listError}
-          </div>
+        {alert && (
+          <Alert
+            variant={alert.variant}
+            title={alert.title}
+            message={alert.message}
+            onClose={alert.variant === "error" ? () => setAlert(null) : undefined}
+          />
         )}
 
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -199,18 +244,18 @@ export default function UserManagement() {
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell className="px-5 py-6 text-sm text-gray-500">
+                    <TableCell colSpan={4} className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                       Loading users...
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell className="px-5 py-6 text-sm text-gray-500">
-                      No users found.
+                    <TableCell colSpan={4} className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No users found. Click &quot;Add User&quot; to create one.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user) => (
+                  displayedUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="px-5 py-4 sm:px-6 text-start">
                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
@@ -249,7 +294,7 @@ export default function UserManagement() {
                             size="sm"
                             variant="outline"
                             disabled={user.id === currentUser?.id}
-                            onClick={() => handleDelete(user)}
+                            onClick={() => handleDeleteClick(user)}
                           >
                             Delete
                           </Button>
@@ -261,9 +306,18 @@ export default function UserManagement() {
               </TableBody>
             </Table>
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={users.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={(page) => setCurrentPage(page)}
+          />
         </div>
       </div>
 
+      {/* Add / Edit User Modal */}
       <Modal
         isOpen={isOpen}
         onClose={closeModal}
@@ -271,12 +325,17 @@ export default function UserManagement() {
       >
         <form onSubmit={handleSubmit}>
           <h4 className="mb-6 text-lg font-medium text-gray-800 dark:text-white/90">
-            {editingUser ? "Edit user" : "Add user"}
+            {editingUser ? "Edit User" : "Add User"}
           </h4>
 
           {formError && (
-            <div className="p-3 mb-5 text-sm rounded-lg bg-error-50 text-error-500 dark:bg-error-500/10">
-              {formError}
+            <div className="mb-5">
+              <Alert
+                variant="error"
+                title="Save Failed"
+                message={formError}
+                onClose={() => setFormError("")}
+              />
             </div>
           )}
 
@@ -285,6 +344,7 @@ export default function UserManagement() {
               <Label>Name</Label>
               <Input
                 type="text"
+                placeholder="e.g. John Doe"
                 value={form.name}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, name: event.target.value }))
@@ -295,6 +355,7 @@ export default function UserManagement() {
               <Label>Email</Label>
               <Input
                 type="email"
+                placeholder="e.g. user@example.com"
                 value={form.email}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, email: event.target.value }))
@@ -308,6 +369,7 @@ export default function UserManagement() {
               </Label>
               <Input
                 type="password"
+                placeholder={editingUser ? "••••••••" : "Enter password"}
                 value={form.password}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, password: event.target.value }))
@@ -340,7 +402,7 @@ export default function UserManagement() {
           </div>
 
           <div className="flex items-center justify-end w-full gap-3 mt-6">
-            <Button size="sm" variant="outline" onClick={closeModal}>
+            <Button size="sm" variant="outline" type="button" onClick={closeModal}>
               Cancel
             </Button>
             <Button size="sm" type="submit" disabled={isSaving}>
@@ -349,6 +411,16 @@ export default function UserManagement() {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deletingUser)}
+        title="Delete User"
+        message={`Are you sure you want to delete user "${deletingUser?.name || deletingUser?.email}"? This action cannot be undone.`}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeletingUser(null)}
+      />
     </>
   );
 }
