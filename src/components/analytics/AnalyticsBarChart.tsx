@@ -101,6 +101,7 @@ export default function AnalyticsLineChart() {
   const activeMeter = masterMeters.find((m) => m.id === selectedMeterId);
   const selectedMeterName = activeMeter?.name || "Power Meter";
 
+  // Chart consumption differences (respects Minutes/Hourly for chart visualization)
   const kwhDifferences: [number, number][] = [];
   for (let i = 1; i < processedHistory.length; i++) {
     let diff = processedHistory[i].total_kwh - processedHistory[i - 1].total_kwh;
@@ -108,10 +109,19 @@ export default function AnalyticsLineChart() {
     kwhDifferences.push([new Date(processedHistory[i].recorded_at).getTime(), diff]);
   }
 
-  const avgV = processedHistory.length ? (processedHistory.reduce((s, i) => s + i.voltage, 0) / processedHistory.length).toFixed(1) : "0.0";
-  const avgC = processedHistory.length ? (processedHistory.reduce((s, i) => s + i.current, 0) / processedHistory.length).toFixed(1) : "0.0";
-  const avgP = processedHistory.length ? (processedHistory.reduce((s, i) => s + i.power, 0) / processedHistory.length).toFixed(2) : "0.00";
-  const totalKwh = kwhDifferences.length ? kwhDifferences.reduce((s, i) => s + i[1], 0).toFixed(2) : "0.00";
+  // Summary card metrics: Always calculated from raw minute-level data (history)
+  // so the actual metric values remain fixed and consistent regardless of Minutes/Hourly view
+  const rawKwhDifferences: number[] = [];
+  for (let i = 1; i < history.length; i++) {
+    let diff = history[i].total_kwh - history[i - 1].total_kwh;
+    if (diff < 0) diff = 0;
+    rawKwhDifferences.push(diff);
+  }
+
+  const avgV = history.length ? (history.reduce((s, i) => s + i.voltage, 0) / history.length).toFixed(1) : "0.0";
+  const avgC = history.length ? (history.reduce((s, i) => s + i.current, 0) / history.length).toFixed(1) : "0.0";
+  const avgP = history.length ? (history.reduce((s, i) => s + i.power, 0) / history.length).toFixed(2) : "0.00";
+  const totalKwh = rawKwhDifferences.length ? rawKwhDifferences.reduce((s, i) => s + i, 0).toFixed(2) : "0.00";
 
   const generateChartOptions = (color: string, unit: string, limitValue?: number, minValue?: number): ApexOptions => {
     const parsedMax = limitValue !== undefined && limitValue !== null && !isNaN(Number(limitValue)) ? Number(limitValue) : undefined;
