@@ -45,6 +45,18 @@ export default function SignInForm() {
     <div className="flex flex-col flex-1">
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
+          <div className="mb-6 flex justify-start lg:hidden">
+            <img
+              className="dark:hidden h-10 w-auto object-contain"
+              src="/images/logo/logo-sanoh.png"
+              alt="Sanoh Logo"
+            />
+            <img
+              className="hidden dark:block h-10 w-auto object-contain"
+              src="/images/logo/logo-sanoh-dark.png"
+              alt="Sanoh Logo"
+            />
+          </div>
           <div className="mb-5 sm:mb-8">
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
               Sign In
