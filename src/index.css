@@ -304,8 +304,32 @@ layer(base);
   @apply text-gray-700! dark:text-gray-400!;
 }
 
-.apexcharts-text:not(.apexcharts-yaxis-annotation-label):not(.apexcharts-xaxis-annotation-label):not(.apexcharts-annotation-label) {
+.apexcharts-text:not(.apexcharts-yaxis-annotation-label):not(.apexcharts-xaxis-annotation-label):not(.apexcharts-annotation-label):not(.apexcharts-radialbar-value) {
   @apply fill-gray-700! dark:fill-gray-400!;
+}
+
+.apexcharts-radialbar-value {
+  @apply fill-gray-900! dark:fill-white!;
+}
+
+/* Keyframes and styles for gauge alert (blinking red when value exceeds max threshold) */
+@keyframes pulse-red-alert {
+  0%, 100% {
+    fill: #ef4444 !important;
+    opacity: 1;
+  }
+  50% {
+    fill: #ef4444 !important;
+    opacity: 0.15;
+  }
+}
+
+.gauge-alert .apexcharts-radialbar-value,
+.gauge-alert .apexcharts-radialbar-value tspan,
+.gauge-alert text.apexcharts-radialbar-value {
+  animation: pulse-red-alert 0.8s ease-in-out infinite !important;
+  fill: #ef4444 !important;
+  color: #ef4444 !important;
 }
 
 .apexcharts-yaxis-annotation-label,

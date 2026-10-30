@@ -63,9 +63,10 @@ function GaugeMetricCard({
   const numericValue = value === null ? 0 : value;
   const percentage = Math.min((numericValue / max) * 100, 100);
   const series = [percentage];
+  const isOverThreshold = status === "live" && value !== null && max !== undefined && max !== null && max > 0 && value > max;
   
   const options: ApexOptions = {
-    colors: [color],
+    colors: [isOverThreshold ? "#EF4444" : color],
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "radialBar",
@@ -82,7 +83,9 @@ function GaugeMetricCard({
           size: "75%",
         },
         track: {
-          background: theme === "dark" ? "#374151" : "#E4E7EC",
+          background: isOverThreshold
+            ? (theme === "dark" ? "#450a0a" : "#FEE2E2")
+            : (theme === "dark" ? "#374151" : "#E4E7EC"),
           strokeWidth: "100%",
           margin: 5,
         },
@@ -90,14 +93,14 @@ function GaugeMetricCard({
           name: {
             show: true,
             offsetY: 10,
-            color: theme === "dark" ? "#9CA3AF" : "#6B7280",
+            color: isOverThreshold ? "#EF4444" : (theme === "dark" ? "#9CA3AF" : "#6B7280"),
             fontSize: "20px",
           },
           value: {
             fontSize: "28px",
             fontWeight: "600",
             offsetY: -45,
-            color: theme === "dark" ? "#FFFFFF" : "#1D2939",
+            color: isOverThreshold ? "#EF4444" : (theme === "dark" ? "#FFFFFF" : "#1D2939"),
             formatter: function () {
               return formatMetric(value, digits) + " " + unit;
             },
@@ -107,7 +110,7 @@ function GaugeMetricCard({
     },
     fill: {
       type: "solid",
-      colors: [color],
+      colors: [isOverThreshold ? "#EF4444" : color],
     },
     stroke: {
       lineCap: "round",
@@ -132,20 +135,44 @@ function GaugeMetricCard({
     );
   } else {
     cardContent = (
-      <div className="w-full flex justify-center">
+      <div className={`w-full flex justify-center ${isOverThreshold ? "gauge-alert" : ""}`}>
         <Chart options={options} series={series} type="radialBar" height={280} />
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+    <div
+      className={`relative overflow-hidden rounded-2xl border bg-white p-5 md:p-6 transition-all duration-300 ${
+        isOverThreshold
+          ? "border-error-500/60 bg-error-50/10 dark:border-error-500/50 dark:bg-error-950/10 shadow-sm shadow-error-500/10 ring-1 ring-error-500/30"
+          : "border-gray-200 dark:border-gray-800 dark:bg-white/[0.03]"
+      }`}
+    >
+      {/* Warning badge centered at top of the card */}
+      {isOverThreshold && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-4 z-10">
+          <span className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400 border border-error-200 dark:border-error-500/30 shadow-xs animate-pulse whitespace-nowrap">
+            <span className="w-1.5 h-1.5 rounded-full bg-error-600 dark:bg-error-400" />
+            Max Exceeded
+          </span>
+        </div>
+      )}
+
+      {/* Connection status badge at top right */}
       <div className="absolute right-4 top-4 z-10">
         <Badge color={statusColor[status]}>{statusLabel[status]}</Badge>
       </div>
 
       <div className="mt-4 flex flex-col items-center justify-center">
         {cardContent}
+      </div>
+
+      <div className="mt-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800/60 pt-3 w-full">
+        <span>Max Threshold:</span>
+        <span className={`font-semibold ${isOverThreshold ? "text-error-600 dark:text-error-400 font-bold" : ""}`}>
+          {max} {unit}
+        </span>
       </div>
     </div>
   );
@@ -218,7 +245,7 @@ export default function EnergyMetrics() {
         name: `Unknown Meter (Slave ID: ${rtMeter.slave_id != null ? rtMeter.slave_id : "?"})`,
         max_voltage: 250,
         max_current: 100,
-        max_power: 22000,
+        max_power: 22,
         voltage: rtMeter.voltage,
         current: rtMeter.current,
         power: rtMeter.power,
