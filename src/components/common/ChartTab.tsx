@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 interface ChartTabProps {
-  onTabChange: (tab: "minutes" | "hourly") => void;
+  onTabChange?: (tab: "minutes" | "hourly") => void;
 }
 
 const ChartTab: React.FC<ChartTabProps> = ({ onTabChange }) => {
@@ -9,7 +9,7 @@ const ChartTab: React.FC<ChartTabProps> = ({ onTabChange }) => {
 
   const handleSelect = (option: "minutes" | "hourly") => {
     setSelected(option);
-    onTabChange(option);
+    onTabChange?.(option);
   };
 
   const getButtonClass = (option: "minutes" | "hourly") =>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import api from "../../lib/api";
@@ -24,9 +24,14 @@ interface DailyShiftSummary {
   morningKwh: number;
   nightKwh: number;
   totalKwh: number;
+  afternoonBreakKwh: number;
+  morningBreakKwh: number;
+  totalBreakKwh: number;
+  fullDayKwh: number;
 }
 
-type ShiftFilter = "all" | "morning" | "night";
+type ShiftFilter = "all" | "morning" | "night" | "full_day" | "breaks";
+type BreakSubFilter = "all" | "afternoon" | "morning";
 
 export default function SummaryChart() {
   const { theme } = useTheme();
@@ -46,8 +51,9 @@ export default function SummaryChart() {
     return new Date().toISOString().substring(0, 10);
   });
 
-  // Shift filter: 'all' | 'morning' | 'night'
+  // Shift & Break filter
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>("all");
+  const [breakSubFilter, setBreakSubFilter] = useState<BreakSubFilter>("all");
 
   // Raw data & loading state
   const [rawHistory, setRawHistory] = useState<RawPowerData[]>([]);
@@ -159,12 +165,12 @@ export default function SummaryChart() {
     return Number(total.toFixed(2));
   };
 
-  // 3. Aggregate daily shift summary data
+  // 3. Aggregate daily shift and break summary data
   const dailySummaries: DailyShiftSummary[] = useMemo(() => {
     if (daysList.length === 0 || rawHistory.length === 0) return [];
 
     return daysList.map((dayStr) => {
-      // Calculate next day string for night shift (20:00 to 05:00 next day)
+      // Calculate next day string for night shift (20:00 to 05:00 next day) & morning break (05:00 to 07:00 next day)
       const dObj = new Date(dayStr);
       dObj.setDate(dObj.getDate() + 1);
       const nextDayStr = dObj.toISOString().substring(0, 10);
@@ -174,12 +180,28 @@ export default function SummaryChart() {
       const morningEnd = `${dayStr} 16:00:00`;
       const morningKwh = computeShiftConsumption(rawHistory, morningStart, morningEnd);
 
+      // Afternoon break: 16:00:00 to 20:00:00 on dayStr (16:01 - 19:59 window)
+      const afternoonStart = `${dayStr} 16:00:00`;
+      const afternoonEnd = `${dayStr} 20:00:00`;
+      const afternoonBreakKwh = computeShiftConsumption(rawHistory, afternoonStart, afternoonEnd);
+
       // Night shift: 20:00:00 on dayStr to 05:00:00 on nextDayStr
       const nightStart = `${dayStr} 20:00:00`;
       const nightEnd = `${nextDayStr} 05:00:00`;
       const nightKwh = computeShiftConsumption(rawHistory, nightStart, nightEnd);
 
+      // Morning break: 05:00:00 to 07:00:00 on nextDayStr (05:01 - 06:59 window)
+      const morningBreakStart = `${nextDayStr} 05:00:00`;
+      const morningBreakEnd = `${nextDayStr} 07:00:00`;
+      const morningBreakKwh = computeShiftConsumption(rawHistory, morningBreakStart, morningBreakEnd);
+
+      const totalBreakKwh = Number((afternoonBreakKwh + morningBreakKwh).toFixed(2));
       const totalKwh = Number((morningKwh + nightKwh).toFixed(2));
+
+      // Full 24-hour day: 00:00:00 to 24:00:00 (nextDayStr 00:00:00) on dayStr
+      const fullDayStart = `${dayStr} 00:00:00`;
+      const fullDayEnd = `${nextDayStr} 00:00:00`;
+      const fullDayKwh = computeShiftConsumption(rawHistory, fullDayStart, fullDayEnd);
 
       // Format date for chart labels e.g. "27 Oct"
       const dateParts = dayStr.split("-");
@@ -196,6 +218,10 @@ export default function SummaryChart() {
         morningKwh,
         nightKwh,
         totalKwh,
+        afternoonBreakKwh,
+        morningBreakKwh,
+        totalBreakKwh,
+        fullDayKwh,
       };
     });
   }, [daysList, rawHistory]);
@@ -203,16 +229,47 @@ export default function SummaryChart() {
   // Overall metric totals
   const totalMorning = dailySummaries.reduce((sum, d) => sum + d.morningKwh, 0);
   const totalNight = dailySummaries.reduce((sum, d) => sum + d.nightKwh, 0);
+  const totalAfternoonBreak = dailySummaries.reduce((sum, d) => sum + d.afternoonBreakKwh, 0);
+  const totalMorningBreak = dailySummaries.reduce((sum, d) => sum + d.morningBreakKwh, 0);
+  const totalBreaks = dailySummaries.reduce((sum, d) => sum + d.totalBreakKwh, 0);
+  const totalFullDay = dailySummaries.reduce((sum, d) => sum + d.fullDayKwh, 0);
+
+  const activeBreakTotal =
+    breakSubFilter === "afternoon"
+      ? totalAfternoonBreak
+      : breakSubFilter === "morning"
+      ? totalMorningBreak
+      : totalBreaks;
+
   const grandTotal =
     shiftFilter === "morning"
       ? totalMorning
       : shiftFilter === "night"
       ? totalNight
+      : shiftFilter === "breaks"
+      ? activeBreakTotal
+      : shiftFilter === "full_day"
+      ? totalFullDay
       : totalMorning + totalNight;
+
   const avgDaily =
-    dailySummaries.length > 0
-      ? grandTotal / dailySummaries.length
-      : 0;
+    dailySummaries.length > 0 ? grandTotal / dailySummaries.length : 0;
+
+  // Active dataset for min/max calculation
+  const currentDataset = useMemo(() => {
+    if (shiftFilter === "morning") return dailySummaries.map((d) => d.morningKwh);
+    if (shiftFilter === "night") return dailySummaries.map((d) => d.nightKwh);
+    if (shiftFilter === "full_day") return dailySummaries.map((d) => d.fullDayKwh);
+    if (shiftFilter === "breaks") {
+      if (breakSubFilter === "afternoon") return dailySummaries.map((d) => d.afternoonBreakKwh);
+      if (breakSubFilter === "morning") return dailySummaries.map((d) => d.morningBreakKwh);
+      return dailySummaries.map((d) => d.totalBreakKwh);
+    }
+    return dailySummaries.map((d) => d.totalKwh);
+  }, [dailySummaries, shiftFilter, breakSubFilter]);
+
+  const maxVal = currentDataset.length > 0 ? Math.max(...currentDataset) : 0;
+  const minVal = currentDataset.length > 0 ? Math.min(...currentDataset) : 0;
 
   // Active power meter details
   const activeMeter = masterMeters.find((m) => m.id === selectedMeterId);
@@ -234,6 +291,10 @@ export default function SummaryChart() {
   let seriesColors: string[] = [];
   let strokeWidths: number[] = [];
   let markerSizes: number[] = [];
+  let customLegendItems: string[] = [];
+  let legendFillColors: string[] = [];
+  let columnWidth = "36%";
+  let fillOpacity: number[] = [0.9, 1];
 
   if (shiftFilter === "morning") {
     const data = dailySummaries.map((d) => d.morningKwh);
@@ -244,6 +305,10 @@ export default function SummaryChart() {
     seriesColors = ["#465FFF", "#465FFF"];
     strokeWidths = [0, 3];
     markerSizes = [0, 5];
+    customLegendItems = ["Morning Trend"];
+    legendFillColors = ["#465FFF"];
+    columnWidth = "36%";
+    fillOpacity = [0.9, 1];
   } else if (shiftFilter === "night") {
     const data = dailySummaries.map((d) => d.nightKwh);
     series = [
@@ -253,6 +318,68 @@ export default function SummaryChart() {
     seriesColors = ["#F59E0B", "#F59E0B"];
     strokeWidths = [0, 3];
     markerSizes = [0, 5];
+    customLegendItems = ["Night Trend"];
+    legendFillColors = ["#F59E0B"];
+    columnWidth = "36%";
+    fillOpacity = [0.9, 1];
+  } else if (shiftFilter === "full_day") {
+    const data = dailySummaries.map((d) => d.fullDayKwh);
+    series = [
+      { name: "24h Trend", type: "column", data },
+      { name: "24h Trend Line", type: "line", data },
+    ];
+    seriesColors = ["#10B981", "#10B981"];
+    strokeWidths = [0, 3];
+    markerSizes = [0, 5];
+    customLegendItems = ["24h Trend"];
+    legendFillColors = ["#10B981"];
+    columnWidth = "36%";
+    fillOpacity = [0.9, 1];
+  } else if (shiftFilter === "breaks") {
+    if (breakSubFilter === "afternoon") {
+      const data = dailySummaries.map((d) => d.afternoonBreakKwh);
+      series = [
+        { name: "Afternoon Break Trend", type: "column", data },
+        { name: "Afternoon Break Trend Line", type: "line", data },
+      ];
+      seriesColors = ["#8B5CF6", "#8B5CF6"];
+      strokeWidths = [0, 3];
+      markerSizes = [0, 5];
+      customLegendItems = ["Afternoon Break Trend"];
+      legendFillColors = ["#8B5CF6"];
+      columnWidth = "36%";
+      fillOpacity = [0.9, 1];
+    } else if (breakSubFilter === "morning") {
+      const data = dailySummaries.map((d) => d.morningBreakKwh);
+      series = [
+        { name: "Morning Break Trend", type: "column", data },
+        { name: "Morning Break Trend Line", type: "line", data },
+      ];
+      seriesColors = ["#06B6D4", "#06B6D4"];
+      strokeWidths = [0, 3];
+      markerSizes = [0, 5];
+      customLegendItems = ["Morning Break Trend"];
+      legendFillColors = ["#06B6D4"];
+      columnWidth = "36%";
+      fillOpacity = [0.9, 1];
+    } else {
+      // Both breaks
+      const afternoonData = dailySummaries.map((d) => d.afternoonBreakKwh);
+      const morningBreakData = dailySummaries.map((d) => d.morningBreakKwh);
+      series = [
+        { name: "Afternoon Break Trend", type: "column", data: afternoonData },
+        { name: "Morning Break Trend", type: "column", data: morningBreakData },
+        { name: "Afternoon Break Trend Line", type: "line", data: afternoonData },
+        { name: "Morning Break Trend Line", type: "line", data: morningBreakData },
+      ];
+      seriesColors = ["#8B5CF6", "#06B6D4", "#8B5CF6", "#06B6D4"];
+      strokeWidths = [0, 0, 2.5, 2.5];
+      markerSizes = [0, 0, 5, 5];
+      customLegendItems = ["Afternoon Break Trend", "Morning Break Trend"];
+      legendFillColors = ["#8B5CF6", "#06B6D4"];
+      columnWidth = "42%";
+      fillOpacity = [0.9, 0.9, 1, 1];
+    }
   } else {
     // All shifts: Grouped Morning bar, Night bar, with trend lines on the endpoints of each
     const morningData = dailySummaries.map((d) => d.morningKwh);
@@ -267,6 +394,10 @@ export default function SummaryChart() {
     seriesColors = ["#465FFF", "#F59E0B", "#465FFF", "#F59E0B"];
     strokeWidths = [0, 0, 2.5, 2.5];
     markerSizes = [0, 0, 5, 5];
+    customLegendItems = ["Morning Trend", "Night Trend"];
+    legendFillColors = ["#465FFF", "#F59E0B"];
+    columnWidth = "42%";
+    fillOpacity = [0.9, 0.9, 1, 1];
   }
 
   const textColor = theme === "dark" ? "#9CA3AF" : "#6B7280";
@@ -288,13 +419,13 @@ export default function SummaryChart() {
     plotOptions: {
       bar: {
         horizontal: false,
-        columnWidth: shiftFilter === "all" ? "42%" : "36%",
+        columnWidth: columnWidth,
         borderRadius: 4,
         borderRadiusApplication: "end",
       },
     },
     fill: {
-      opacity: shiftFilter === "all" ? [0.9, 0.9, 1, 1] : [0.9, 1],
+      opacity: fillOpacity,
     },
     markers: {
       size: markerSizes,
@@ -352,38 +483,84 @@ export default function SummaryChart() {
           "";
 
         let rowsHtml = "";
-        if (shiftFilter === "morning" || shiftFilter === "all") {
-          const val = dailySummaries[dataPointIndex]?.morningKwh ?? 0;
-          rowsHtml += `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
-              <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
-                <span style="width:8px;height:8px;border-radius:9999px;background-color:#465FFF;display:inline-block;"></span>
-                Morning Trend:
-              </span>
-              <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
-                theme === "dark" ? "#FFFFFF" : "#111827"
-              };">${val.toFixed(2)} kWh</span>
-            </div>
-          `;
-        }
 
-        if (shiftFilter === "night" || shiftFilter === "all") {
-          const val = dailySummaries[dataPointIndex]?.nightKwh ?? 0;
+        if (shiftFilter === "full_day") {
+          const val = dailySummaries[dataPointIndex]?.fullDayKwh ?? 0;
           rowsHtml += `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
               <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
-                <span style="width:8px;height:8px;border-radius:9999px;background-color:#F59E0B;display:inline-block;"></span>
-                Night Trend:
+                <span style="width:8px;height:8px;border-radius:9999px;background-color:#10B981;display:inline-block;"></span>
+                24h Trend:
               </span>
               <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
                 theme === "dark" ? "#FFFFFF" : "#111827"
               };">${val.toFixed(2)} kWh</span>
             </div>
           `;
+        } else if (shiftFilter === "breaks") {
+          if (breakSubFilter === "afternoon" || breakSubFilter === "all") {
+            const val = dailySummaries[dataPointIndex]?.afternoonBreakKwh ?? 0;
+            rowsHtml += `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
+                  <span style="width:8px;height:8px;border-radius:9999px;background-color:#8B5CF6;display:inline-block;"></span>
+                  Afternoon Break Trend:
+                </span>
+                <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
+                  theme === "dark" ? "#FFFFFF" : "#111827"
+                };">${val.toFixed(2)} kWh</span>
+              </div>
+            `;
+          }
+          if (breakSubFilter === "morning" || breakSubFilter === "all") {
+            const val = dailySummaries[dataPointIndex]?.morningBreakKwh ?? 0;
+            rowsHtml += `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
+                  <span style="width:8px;height:8px;border-radius:9999px;background-color:#06B6D4;display:inline-block;"></span>
+                  Morning Break Trend:
+                </span>
+                <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
+                  theme === "dark" ? "#FFFFFF" : "#111827"
+                };">${val.toFixed(2)} kWh</span>
+              </div>
+            `;
+          }
+        } else {
+          // "all", "morning", "night"
+          if (shiftFilter === "morning" || shiftFilter === "all") {
+            const val = dailySummaries[dataPointIndex]?.morningKwh ?? 0;
+            rowsHtml += `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
+                  <span style="width:8px;height:8px;border-radius:9999px;background-color:#465FFF;display:inline-block;"></span>
+                  Morning Trend:
+                </span>
+                <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
+                  theme === "dark" ? "#FFFFFF" : "#111827"
+                };">${val.toFixed(2)} kWh</span>
+              </div>
+            `;
+          }
+
+          if (shiftFilter === "night" || shiftFilter === "all") {
+            const val = dailySummaries[dataPointIndex]?.nightKwh ?? 0;
+            rowsHtml += `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:3px 0;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:${textColor};">
+                  <span style="width:8px;height:8px;border-radius:9999px;background-color:#F59E0B;display:inline-block;"></span>
+                  Night Trend:
+                </span>
+                <span style="font-size:13px;font-weight:700;font-family:monospace;color:${
+                  theme === "dark" ? "#FFFFFF" : "#111827"
+                };">${val.toFixed(2)} kWh</span>
+              </div>
+            `;
+          }
         }
 
         return `
-          <div style="padding:10px 14px;min-width:160px;">
+          <div style="padding:10px 14px;min-width:180px;">
             <div style="font-size:12px;font-weight:600;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid ${gridColor};color:${textColor};">
               ${category}
             </div>
@@ -399,19 +576,9 @@ export default function SummaryChart() {
       fontFamily: "Outfit, sans-serif",
       fontSize: "13px",
       fontWeight: 500,
-      customLegendItems:
-        shiftFilter === "morning"
-          ? ["Morning Trend"]
-          : shiftFilter === "night"
-          ? ["Night Trend"]
-          : ["Morning Trend", "Night Trend"],
+      customLegendItems: customLegendItems,
       markers: {
-        fillColors:
-          shiftFilter === "morning"
-            ? ["#465FFF"]
-            : shiftFilter === "night"
-            ? ["#F59E0B"]
-            : ["#465FFF", "#F59E0B"],
+        fillColors: legendFillColors,
         size: 5,
         shape: "circle",
         strokeWidth: 0,
@@ -553,87 +720,183 @@ export default function SummaryChart() {
           </div>
         </div>
 
-        {/* Shift Filter Tabs */}
+        {/* View Selection Tabs */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-            Shift View
+            View Mode
           </label>
-          <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <button
-              onClick={() => setShiftFilter("all")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                shiftFilter === "all"
-                  ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              }`}
-            >
-              All Shifts
-            </button>
-            <button
-              onClick={() => setShiftFilter("morning")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                shiftFilter === "morning"
-                  ? "bg-white text-blue-600 shadow-theme-xs dark:bg-gray-800 dark:text-blue-400"
-                  : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              }`}
-            >
-              Morning Shift
-            </button>
-            <button
-              onClick={() => setShiftFilter("night")}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                shiftFilter === "night"
-                  ? "bg-white text-amber-600 shadow-theme-xs dark:bg-gray-800 dark:text-amber-400"
-                  : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              }`}
-            >
-              Night Shift
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+              <button
+                onClick={() => setShiftFilter("all")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  shiftFilter === "all"
+                    ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
+              >
+                All Shifts
+              </button>
+              <button
+                onClick={() => setShiftFilter("morning")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  shiftFilter === "morning"
+                    ? "bg-white text-blue-600 shadow-theme-xs dark:bg-gray-800 dark:text-blue-400"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
+              >
+                Morning Shift
+              </button>
+              <button
+                onClick={() => setShiftFilter("night")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  shiftFilter === "night"
+                    ? "bg-white text-amber-600 shadow-theme-xs dark:bg-gray-800 dark:text-amber-400"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
+              >
+                Night Shift
+              </button>
+              <button
+                onClick={() => setShiftFilter("breaks")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  shiftFilter === "breaks"
+                    ? "bg-white text-purple-600 shadow-theme-xs dark:bg-gray-800 dark:text-purple-400"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
+              >
+                Shift Breaks
+              </button>
+              <button
+                onClick={() => setShiftFilter("full_day")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  shiftFilter === "full_day"
+                    ? "bg-white text-emerald-600 shadow-theme-xs dark:bg-gray-800 dark:text-emerald-400"
+                    : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
+              >
+                24 Hours
+              </button>
+            </div>
+
+            {/* Sub-selector for Shift Breaks */}
+            {shiftFilter === "breaks" && (
+              <div className="inline-flex items-center gap-1 rounded-lg bg-purple-50 p-1 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60">
+                <button
+                  onClick={() => setBreakSubFilter("all")}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                    breakSubFilter === "all"
+                      ? "bg-white text-purple-700 shadow-theme-xs dark:bg-gray-800 dark:text-purple-300"
+                      : "text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200"
+                  }`}
+                >
+                  All Breaks
+                </button>
+                <button
+                  onClick={() => setBreakSubFilter("afternoon")}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                    breakSubFilter === "afternoon"
+                      ? "bg-white text-violet-700 shadow-theme-xs dark:bg-gray-800 dark:text-violet-300"
+                      : "text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200"
+                  }`}
+                >
+                  16:01 - 19:59
+                </button>
+                <button
+                  onClick={() => setBreakSubFilter("morning")}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                    breakSubFilter === "morning"
+                      ? "bg-white text-cyan-700 shadow-theme-xs dark:bg-gray-800 dark:text-cyan-300"
+                      : "text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-200"
+                  }`}
+                >
+                  05:01 - 06:59
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* 2. METRIC SUMMARY CARDS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
+        {/* Card 1: Active View Main Total */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-gray-500 text-theme-sm dark:text-gray-400">
-            Total Consumption
+            {shiftFilter === "morning"
+              ? "Morning Total"
+              : shiftFilter === "night"
+              ? "Night Total"
+              : shiftFilter === "full_day"
+              ? "24h Total Consumption"
+              : shiftFilter === "breaks"
+              ? "Total Break Consumption"
+              : "Total Consumption"}
           </p>
           <div className="mt-3 flex items-baseline gap-2">
-            <h4 className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            <h4
+              className={`text-2xl font-bold ${
+                shiftFilter === "morning"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : shiftFilter === "night"
+                  ? "text-amber-500 dark:text-amber-400"
+                  : shiftFilter === "full_day"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-purple-600 dark:text-purple-400"
+              }`}
+            >
               {grandTotal.toFixed(2)}
             </h4>
             <span className="text-xs font-medium text-gray-400">kWh</span>
           </div>
         </div>
 
+        {/* Card 2: Breakdown 1 / Peak */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-gray-500 text-theme-sm dark:text-gray-400">
-            Morning Shift Total
+            {shiftFilter === "breaks"
+              ? "Afternoon Break (16:01-19:59)"
+              : shiftFilter === "full_day" || shiftFilter === "morning" || shiftFilter === "night"
+              ? "Highest Daily Record"
+              : "Morning Shift Total"}
           </p>
           <div className="mt-3 flex items-baseline gap-2">
             <h4 className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {totalMorning.toFixed(2)}
+              {shiftFilter === "breaks"
+                ? totalAfternoonBreak.toFixed(2)
+                : shiftFilter === "full_day" || shiftFilter === "morning" || shiftFilter === "night"
+                ? maxVal.toFixed(2)
+                : totalMorning.toFixed(2)}
             </h4>
             <span className="text-xs font-medium text-gray-400">kWh</span>
           </div>
         </div>
 
+        {/* Card 3: Breakdown 2 / Minimum */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-gray-500 text-theme-sm dark:text-gray-400">
-            Night Shift Total
+            {shiftFilter === "breaks"
+              ? "Morning Break (05:01-06:59)"
+              : shiftFilter === "full_day" || shiftFilter === "morning" || shiftFilter === "night"
+              ? "Lowest Daily Record"
+              : "Night Shift Total"}
           </p>
           <div className="mt-3 flex items-baseline gap-2">
             <h4 className="text-2xl font-bold text-amber-500 dark:text-amber-400">
-              {totalNight.toFixed(2)}
+              {shiftFilter === "breaks"
+                ? totalMorningBreak.toFixed(2)
+                : shiftFilter === "full_day" || shiftFilter === "morning" || shiftFilter === "night"
+                ? minVal.toFixed(2)
+                : totalNight.toFixed(2)}
             </h4>
             <span className="text-xs font-medium text-gray-400">kWh</span>
           </div>
         </div>
 
+        {/* Card 4: Daily Average */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-gray-500 text-theme-sm dark:text-gray-400">
-            Daily Average
+            {shiftFilter === "full_day" ? "24h Daily Average" : "Daily Average"}
           </p>
           <div className="mt-3 flex items-baseline gap-2">
             <h4 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">

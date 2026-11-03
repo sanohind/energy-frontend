@@ -7,7 +7,6 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import DatePicker from "../form/date-picker";
 import { PowerMeter } from "../../types/powerMeter";
-import { data } from "react-router";
 
 interface HistoryData {
   id: number;
@@ -18,7 +17,7 @@ interface HistoryData {
   recorded_at: string;
 }
 
-export default function StatisticsChart({ powerMeterId = 1 }: { powerMeterId?: number }) {
+export default function StatisticsChart({ powerMeterId: _powerMeterId = 1 }: { powerMeterId?: number } = {}) {
   const [history, setHistory] = useState<HistoryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [masterMeters, setMasterMeters] = useState<PowerMeter[]>([]);
