@@ -9,6 +9,7 @@ import Stocks from "./pages/Dashboard/Stocks";
 import Crm from "./pages/Dashboard/Crm";
 import Marketing from "./pages/Dashboard/Marketing";
 import Analytics from "./pages/Dashboard/Analytics";
+import Summary from "./pages/Dashboard/Summary";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -74,6 +75,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Monitoring />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/summary" element={<Summary />} />
             <Route path="/marketing" element={<Marketing />} />
             <Route path="/crm" element={<Crm />} />
             <Route path="/stocks" element={<Stocks />} />
