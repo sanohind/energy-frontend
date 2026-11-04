@@ -410,6 +410,9 @@ export default function SummaryChart() {
       height: 380,
       toolbar: { show: false },
       zoom: { enabled: false },
+      animations: {
+        enabled: false,
+      },
     },
     colors: seriesColors,
     stroke: {
@@ -431,7 +434,21 @@ export default function SummaryChart() {
       size: markerSizes,
       strokeWidth: 2,
       strokeColors: "#FFFFFF",
-      hover: { size: 7 },
+      hover: {
+        sizeOffset: 1,
+      },
+    },
+    states: {
+      hover: {
+        filter: {
+          type: "darken",
+        },
+      },
+      active: {
+        filter: {
+          type: "none",
+        },
+      },
     },
     dataLabels: {
       enabled: false,
@@ -473,9 +490,15 @@ export default function SummaryChart() {
       xaxis: { lines: { show: false } },
     },
     tooltip: {
+      enabled: true,
       shared: true,
       intersect: false,
+      followCursor: false,
       custom: function ({ dataPointIndex, w }) {
+        if (dataPointIndex < 0 || !dailySummaries[dataPointIndex]) {
+          return "";
+        }
+
         const category =
           w.globals.categoryLabels?.[dataPointIndex] ||
           w.globals.labels?.[dataPointIndex] ||
@@ -560,7 +583,7 @@ export default function SummaryChart() {
         }
 
         return `
-          <div style="padding:10px 14px;min-width:180px;">
+          <div style="padding:10px 14px;min-width:180px;pointer-events:none;user-select:none;">
             <div style="font-size:12px;font-weight:600;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid ${gridColor};color:${textColor};">
               ${category}
             </div>
@@ -960,6 +983,101 @@ export default function SummaryChart() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* 4. SHIFT BREAKDOWN DETAILS TABLE */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">
+            Shift Breakdown Details
+          </h3>
+        </div>
+
+        <div className="max-w-full overflow-x-auto custom-scrollbar">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
+              <tr>
+                <th className="px-5 py-3.5 text-left font-semibold text-gray-700 dark:text-gray-300">
+                  Date
+                </th>
+                <th className="px-5 py-3.5 text-left font-semibold text-blue-600 dark:text-blue-400">
+                  Morning Shift
+                </th>
+                <th className="px-5 py-3.5 text-left font-semibold text-violet-600 dark:text-violet-400">
+                  Afternoon Break
+                </th>
+                <th className="px-5 py-3.5 text-left font-semibold text-amber-600 dark:text-amber-400">
+                  Night Shift
+                </th>
+                <th className="px-5 py-3.5 text-left font-semibold text-cyan-600 dark:text-cyan-400">
+                  Morning Break
+                </th>
+                <th className="px-5 py-3.5 text-left font-semibold text-emerald-600 dark:text-emerald-400">
+                  24h Total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+              {dailySummaries.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">
+                    No data available
+                  </td>
+                </tr>
+              ) : (
+                dailySummaries.map((item) => (
+                  <tr
+                    key={item.date}
+                    className="hover:bg-gray-50/60 dark:hover:bg-white/[0.02] transition"
+                  >
+                    <td className="px-5 py-3.5 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
+                      {item.date} ({item.formattedDate})
+                    </td>
+                    <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300 font-mono">
+                      {item.morningKwh.toFixed(2)} kWh
+                    </td>
+                    <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300 font-mono">
+                      {item.afternoonBreakKwh.toFixed(2)} kWh
+                    </td>
+                    <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300 font-mono">
+                      {item.nightKwh.toFixed(2)} kWh
+                    </td>
+                    <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300 font-mono">
+                      {item.morningBreakKwh.toFixed(2)} kWh
+                    </td>
+                    <td className="px-5 py-3.5 font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
+                      {item.fullDayKwh.toFixed(2)} kWh
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {dailySummaries.length > 0 && (
+              <tfoot className="bg-gray-50/70 dark:bg-gray-800/70 font-semibold border-t-2 border-gray-200 dark:border-gray-700">
+                <tr>
+                  <td className="px-5 py-3.5 text-gray-800 dark:text-gray-200">
+                    Total
+                  </td>
+                  <td className="px-5 py-3.5 text-blue-600 dark:text-blue-400 font-mono">
+                    {totalMorning.toFixed(2)} kWh
+                  </td>
+                  <td className="px-5 py-3.5 text-violet-600 dark:text-violet-400 font-mono">
+                    {totalAfternoonBreak.toFixed(2)} kWh
+                  </td>
+                  <td className="px-5 py-3.5 text-amber-600 dark:text-amber-400 font-mono">
+                    {totalNight.toFixed(2)} kWh
+                  </td>
+                  <td className="px-5 py-3.5 text-cyan-600 dark:text-cyan-400 font-mono">
+                    {totalMorningBreak.toFixed(2)} kWh
+                  </td>
+                  <td className="px-5 py-3.5 text-emerald-600 dark:text-emerald-400 font-mono">
+                    {totalFullDay.toFixed(2)} kWh
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
       </div>
     </div>
   );
